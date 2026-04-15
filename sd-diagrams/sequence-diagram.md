@@ -17,36 +17,36 @@ sequenceDiagram
     TripController->>+TripService: createTrip(riderId, origin, destination, seats)
     TripService->>TripService: validateLocations(origin, destination)
     alt Invalid locations
-        TripService-->>-TripController: throw InvalidRideParamException
-        TripController-->>-TripRoutes: 400 Bad Request
-        TripRoutes-->>-Client: Error response
+        TripService-->>TripController: throw InvalidRideParamException
+        TripController-->>TripRoutes: 400 Bad Request
+        TripRoutes-->>Client: Error response
     else Valid locations
-        TripService->>+RiderRepository: findById(riderId)
+        TripService->>RiderRepository: findById(riderId)
         alt Rider not found
-            RiderRepository-->>-TripService: undefined
-            TripService-->>-TripController: throw TripNotFoundException
-            TripController-->>-TripRoutes: 404 Not Found
-            TripRoutes-->>-Client: Error response
+            RiderRepository-->>TripService: undefined
+            TripService-->>TripController: throw TripNotFoundException
+            TripController-->>TripRoutes: 404 Not Found
+            TripRoutes-->>Client: Error response
         else Rider found
-            RiderRepository-->>-TripService: Rider
-            TripService->>+DriverRepository: findAll()
-            DriverRepository-->>-TripService: drivers
-            TripService->>+DriverMatchingStrategy: findDriver(rider, drivers, origin, destination)
-            DriverMatchingStrategy-->>-TripService: driver
+            RiderRepository-->>TripService: Rider
+            TripService->>DriverRepository: findAll()
+            DriverRepository-->>TripService: drivers
+            TripService->>DriverMatchingStrategy: findDriver(rider, drivers, origin, destination)
+            DriverMatchingStrategy-->>TripService: driver
             alt No driver available
-                TripService-->>-TripController: throw DriverNotFoundException
-                TripController-->>-TripRoutes: 404 Not Found
-                TripRoutes-->>-Client: Error response
+                TripService-->>TripController: throw DriverNotFoundException
+                TripController-->>TripRoutes: 404 Not Found
+                TripRoutes-->>Client: Error response
             else Driver found
-                TripService->>+PricingStrategy: calculateFare(origin, destination, seats)
-                PricingStrategy-->>-TripService: fare
-                TripService->>+TripRepository: save(riderId, trip)
-                TripRepository-->>-TripService: saved
-                TripService->>+DriverRepository: update(driver)
-                DriverRepository-->>-TripService: updated
-                TripService-->>-TripController: tripId
-                TripController-->>-TripRoutes: 201 Created {tripId}
-                TripRoutes-->>-Client: Response
+                TripService->>PricingStrategy: calculateFare(origin, destination, seats)
+                PricingStrategy-->>TripService: fare
+                TripService->>TripRepository: save(riderId, trip)
+                TripRepository-->>TripService: saved
+                TripService->>DriverRepository: update(driver)
+                DriverRepository-->>TripService: updated
+                TripService-->>TripController: tripId
+                TripController-->>TripRoutes: 201 Created {tripId}
+                TripRoutes-->>Client: Response
             end
         end
     end
