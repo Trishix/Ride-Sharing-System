@@ -1,57 +1,164 @@
-# Sequence Diagram
+# Sequence Diagram - Create Trip Flow
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant TripRoutes
-    participant TripController
-    participant TripService
-    participant RiderRepository
-    participant DriverRepository
-    participant DriverMatchingStrategy
-    participant PricingStrategy
-    participant TripRepository
+    participant Express as TripRoutes
+    participant Controller as TripController
+    participant Service as TripService
+    participant RiderRepo as RiderRepository
+    participant DriverRepo as DriverRepository
+    participant Matching as DriverMatchingStrategy
+    participant Pricing as PricingStrategy
+    participant TripRepo as TripRepository
 
-    Client->>+TripRoutes: POST /trips (riderId, origin, destination, seats)
-    TripRoutes->>+TripController: createTrip(riderId, origin, destination, seats)
-    TripController->>+TripService: createTrip(riderId, origin, destination, seats)
-    TripService->>TripService: validateLocations(origin, destination)
+    Note over Client, Express: POST /trips<br/>{riderId, origin, destination, seats}
+
+    Client->>+Express: POST /trips (riderId, origin, destination, seats)
+    Express->>+Controller: createTrip(riderId, origin, destination, seats)
+    Controller->>+Service: createTrip(riderId, origin, destination, seats)
+
+    Service->>Service: validateLocations(origin, destination)
     alt Invalid locations
-        TripService-->>TripController: throw InvalidRideParamException
-        TripController-->>TripRoutes: 400 Bad Request
-        TripRoutes-->>Client: Error response
-    else Valid locations
-        TripService->>RiderRepository: findById(riderId)
-        alt Rider not found
-            RiderRepository-->>TripService: undefined
-            TripService-->>TripController: throw TripNotFoundException
-            TripController-->>TripRoutes: 404 Not Found
-            TripRoutes-->>Client: Error response
-        else Rider found
-            RiderRepository-->>TripService: Rider
-            TripService->>DriverRepository: findAll()
-            DriverRepository-->>TripService: drivers
-            TripService->>DriverMatchingStrategy: findDriver(rider, drivers, origin, destination)
-            DriverMatchingStrategy-->>TripService: driver
-            alt No driver available
-                TripService-->>TripController: throw DriverNotFoundException
-                TripController-->>TripRoutes: 404 Not Found
-                TripRoutes-->>Client: Error response
-            else Driver found
-                TripService->>PricingStrategy: calculateFare(origin, destination, seats)
-                PricingStrategy-->>TripService: fare
-                TripService->>TripRepository: save(riderId, trip)
-                TripRepository-->>TripService: saved
-                TripService->>DriverRepository: update(driver)
-                DriverRepository-->>TripService: updated
-                TripService-->>TripController: tripId
-                TripController-->>TripRoutes: 201 Created {tripId}
-                TripRoutes-->>Client: Response
+        Service-->>Controller: throw InvalidRideParamException
+        Controller-->>Express: 400 Bad Request
+        Express-->>Client: { error: "Invalid location" }
+    end
+
+    Service->>RiderRepo: findById(riderId)
+    alt Rider not found
+        RiderRepo-->>Service: undefined
+        Service-->>Controller: throw TripNotFoundException
+        Controller-->>Express: 404 Not Found
+        Express-->>Client: { error: "Rider not found" }
+    else Rider found
+        RiderRepo-->>Service: Rider
+
+        Service->>DriverRepo: findAll()
+        DriverRepo-->>Service: drivers[]
+
+        Service->>Matching: findDriver(rider, availableDrivers, origin, destination)
+        alt No driver available
+            Matching-->>Service: undefined
+            Service-->>Controller: throw DriverNotFoundException
+            Controller-->>Express: 404 Not Found
+            Express-->>Client: { error: "Driver not found" }
+        else Driver found
+            Matching-->>Service: Driver
+
+            Service->>Pricing: calculateFare(origin, destination, seats)
+            alt Preferred rider (>10 trips)
+                Pricing-->>Service: fare (discounted)
+            else Regular rider
+                Pricing-->>Service: fare (standard)
             end
+
+            Service->>Trip: new Trip(rider, driver, origin, destination, seats, fare)
+            Service->>TripRepo: save(riderId, trip)
+            TripRepo-->>Service: saved
+
+            Service->>Driver: setCurrentTrip(trip)
+            Service->>DriverRepo: update(driver)
+            DriverRepo-->>Service: updated
+
+            Service-->>Controller: tripId
+            Controller-->>Express: 201 Created { tripId }
+            Express-->>Client: { tripId: "uuid" }
         end
     end
 ```
 
-## About this diagram
+## Complete Trip Lifecycle
 
-This sequence diagram shows the full `createTrip` request lifecycle. It includes input validation, rider lookup, driver lookup, driver matching, fare calculation, trip persistence, driver update, and the response flow. It also models error paths when the request is invalid, the rider does not exist, or no driver is available.
+```mermaid
+sequenceDiagram
+    participant Rider
+    participant System as TripRoutes
+    participant Controller
+    participant Service
+
+    Note over Rider, System: --- UPDATE TRIP ---<br/>PATCH /trips/:tripId
+
+    Rider->>+System: PATCH /trips/:tripId (origin, destination, seats)
+    System->>+Controller: updateTrip(tripId, origin, destination, seats)
+    Controller->>+Service: updateTrip(tripId, origin, destination, seats)
+    alt Trip not found or completed/withdrawn
+        Service-->>Controller: throw TripNotFoundException / TripStatusException
+        Controller-->>System: 404/400
+        System-->>Rider: { error }
+    else Success
+        Service-->>Controller: success
+        Controller-->>System: 200 OK
+        System-->>Rider: { message: "Trip updated" }
+    end
+```
+
+```mermaid
+sequenceDiagram
+    participant Rider
+    participant System as TripRoutes
+    participant Controller
+    participant Service
+
+    Note over Rider, System: --- WITHDRAW TRIP ---<br/>POST /trips/:tripId/withdraw
+
+    Rider->>+System: POST /trips/:tripId/withdraw
+    System->>+Controller: withdrawTrip(tripId)
+    Controller->>+Service: withdrawTrip(tripId)
+    alt Trip not found or completed
+        Service-->>Controller: throw TripNotFoundException / TripStatusException
+        Controller-->>System: 404/400
+        System-->>Rider: { error }
+    else Success
+        Service->>Driver: setCurrentTrip(null)
+        Service->>Trip: withdrawTrip()
+        Service->>TripRepo: update(trip)
+        Service->>DriverRepo: update(driver)
+        Service-->>Controller: success
+        Controller-->>System: 200 OK
+        System-->>Rider: { message: "Trip withdrawn" }
+    end
+```
+
+```mermaid
+sequenceDiagram
+    participant Driver
+    participant System as DriverRoutes
+    participant Controller
+    participant Service
+
+    Note over Driver, System: --- END TRIP ---<br/>POST /drivers/:driverId/end-trip
+
+    Driver->>+System: POST /drivers/:driverId/end-trip
+    System->>+Controller: endTrip(driverId)
+    Controller->>+Service: endTrip(driverId)
+    alt Driver not found or no active trip
+        Service-->>Controller: throw TripNotFoundException
+        Controller-->>System: 404
+        System-->>Driver: { error }
+    else Success
+        Service->>Trip: endTrip()
+        Service->>Driver: setCurrentTrip(null)
+        Service->>TripRepo: update(trip)
+        Service->>DriverRepo: update(driver)
+        Service-->>Controller: fare
+        Controller-->>System: 200 OK
+        System-->>Driver: { fare: 200.00 }
+    end
+```
+
+## Verified Against Codebase
+
+| Flow | Endpoint | Status |
+|------|----------|--------|
+| Create Trip | POST /trips | ✓ Complete flow |
+| Update Trip | PATCH /trips/:tripId | ✓ Verified |
+| Withdraw Trip | POST /trips/:tripId/withdraw | ✓ Verified |
+| End Trip | POST /drivers/:driverId/end-trip | ✓ Verified |
+
+## Notes
+
+- All error paths match actual exception handling
+- Driver matching uses OptimalDriverStrategy
+- Pricing uses DefaultPricingStrategy with preferred rider discount (>10 trips)
+- endTrip returns fare to client

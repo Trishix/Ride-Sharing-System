@@ -1,154 +1,167 @@
-# Class Diagram
+# Class Diagram - Ride Sharing System
 
 ```mermaid
 classDiagram
-    %% ROUTES & CONTROLLERS
-    class App {
-      +start()
-    }
+    %% ROUTES
     class DriverRoutes {
-      +configureRoutes()
+        +configureRoutes() Router
     }
     class RiderRoutes {
-      +configureRoutes()
+        +configureRoutes() Router
     }
     class TripRoutes {
-      +configureRoutes()
+        +configureRoutes() Router
     }
     class SystemRoutes {
-      +configureRoutes()
+        +configureRoutes() Router
     }
+
+    %% CONTROLLERS
     class DriverController {
-      +createDriver()
-      +updateDriverAvailability()
-      +getAvailableDrivers()
-      +endTrip()
+        +createDriver(req, res, next)
+        +updateDriverAvailability(req, res, next)
+        +getAvailableDrivers(req, res, next)
+        +endTrip(req, res, next)
     }
     class RiderController {
-      +createRider()
-      +getRider()
-      +getTripHistory()
+        +createRider(req, res, next)
+        +getRider(req, res, next)
+        +getTripHistory(req, res, next)
     }
     class TripController {
-      +createTrip()
-      +updateTrip()
-      +withdrawTrip()
-      +endTrip()
+        +createTrip(req, res, next)
+        +updateTrip(req, res, next)
+        +withdrawTrip(req, res, next)
     }
     class SystemController {
-      +health()
-      +openApi()
+        +health(req, res, next)
+        +openApi(req, res, next)
     }
 
     %% SERVICES
     class DriverService {
-      +register(driver)
-      +updateAvailability(driverId, available)
-      +getAvailableDrivers()
+        +register(driver)
+        +updateAvailability(driverId, available)
+        +getAvailableDrivers() Driver[]
+        +getDriver(driverId) Driver
     }
     class RiderService {
-      +register(rider)
-      +getRider(riderId)
+        +register(rider)
+        +getRider(riderId) Rider
     }
     class TripService {
-      +createTrip(riderId, origin, destination, seats)
-      +updateTrip(tripId, origin, destination, seats)
-      +withdrawTrip(tripId)
-      +endTrip(driverId)
-      +tripHistory(riderId)
-      -validateLocations(origin, destination)
-      -calculateFare(riderId, origin, destination, seats)
-      -isPreferredRider(riderId)
+        +createTrip(riderId, origin, destination, seats)
+        +updateTrip(tripId, origin, destination, seats)
+        +withdrawTrip(tripId)
+        +endTrip(driverId) fare
+        +tripHistory(riderId) Trip[]
     }
 
-    %% FACTORY & STRATEGY
+    %% STRATEGY FACTORY
     class StrategyFactory {
-      +createPricingStrategy(type)
-      +createDriverMatchingStrategy(type)
+        +createPricingStrategy(type) PricingStrategy
+        +createDriverMatchingStrategy(type) DriverMatchingStrategy
     }
+
+    %% STRATEGIES
     class PricingStrategy <<interface>> {
-      +calculateFare(origin, destination, seats)
-      +calculateFareForPreferred(origin, destination, seats)
+        +calculateFare(origin, destination, seats)
+        +calculateFareForPreferred(origin, destination, seats)
     }
     class DefaultPricingStrategy {
-      +calculateFare(origin, destination, seats)
-      +calculateFareForPreferred(origin, destination, seats)
+        +calculateFare(origin, destination, seats)
+        +calculateFareForPreferred(origin, destination, seats)
     }
     class DriverMatchingStrategy <<interface>> {
-      +findDriver(rider, drivers, origin, destination)
+        +findDriver(rider, drivers, origin, destination)
     }
     class OptimalDriverStrategy {
-      +findDriver(rider, drivers, origin, destination)
+        +findDriver(rider, drivers, origin, destination)
     }
 
-    %% REPOSITORIES
+    %% REPOSITORY INTERFACES
     class DriverRepository <<interface>> {
-      +findById(driverId)
-      +findAll()
-      +save(driver)
-      +update(driver)
+        +findById(driverId)
+        +findAll() Driver[]
+        +save(driver)
+        +update(driver)
     }
     class RiderRepository <<interface>> {
-      +findById(riderId)
-      +save(rider)
+        +findById(riderId) Rider
+        +save(rider)
     }
     class TripRepository <<interface>> {
-      +save(riderId, trip)
-      +update(trip)
-      +findById(tripId)
-      +findByRiderId(riderId)
+        +save(riderId, trip)
+        +update(trip)
+        +findById(tripId) Trip
+        +findByRiderId(riderId) Trip[]
     }
-    class PostgresDriverRepository
-    class PostgresRiderRepository
-    class PostgresTripRepository
+
+    %% REPOSITORY IMPLEMENTATIONS
+    class PostgresDriverRepository {
+        +findById(driverId)
+        +findAll() Driver[]
+        +save(driver)
+        +update(driver)
+    }
+    class PostgresRiderRepository {
+        +findById(riderId) Rider
+        +save(rider)
+    }
+    class PostgresTripRepository {
+        +save(riderId, trip)
+        +update(trip)
+        +findById(tripId) Trip
+        +findByRiderId(riderId) Trip[]
+    }
 
     %% DOMAIN MODELS
     class Driver {
-      -int id
-      -string name
-      -Trip currentTrip
-      -bool isAcceptingRider
-      +getId()
-      +getName()
-      +getCurrentTrip()
-      +getAcceptingRider()
-      +setCurrentTrip(trip)
-      +setAcceptingRider(bool)
-      +isAvailable()
+        -id: int
+        -name: string
+        -currentTrip: Trip | null
+        -isAcceptingRider: boolean
+        +getId() int
+        +getName() string
+        +getCurrentTrip() Trip | null
+        +getAcceptingRider() boolean
+        +setCurrentTrip(trip)
+        +setAcceptingRider(bool)
+        +isAvailable() boolean
     }
     class Rider {
-      -int id
-      -string name
-      +getId()
-      +getName()
+        -id: int
+        -name: string
+        +getId() int
+        +getName() string
     }
     class Trip {
-      -string id
-      -Rider rider
-      -Driver driver
-      -int origin
-      -int destination
-      -int seats
-      -float fare
-      -TripStatus status
-      +getId()
-      +getRider()
-      +getDriver()
-      +getOrigin()
-      +getDestination()
-      +getSeats()
-      +getFare()
-      +getStatus()
-      +updateTrip(origin, destination, seats, fare)
-      +endTrip()
-      +withdrawTrip()
-      +fromPersistence(...)
+        -id: string
+        -rider: Rider
+        -driver: Driver
+        -origin: int
+        -destination: int
+        -seats: int
+        -fare: number
+        -status: TripStatus
+        +getId() string
+        +getRider() Rider
+        +getDriver() Driver
+        +getOrigin() int
+        +getDestination() int
+        +getSeats() int
+        +getFare() number
+        +getStatus() TripStatus
+        +updateTrip(origin, destination, seats, fare)
+        +endTrip()
+        +withdrawTrip()
+        +fromPersistence(...)
     }
     class TripStatus {
-      <<enum>>
-      IN_PROGRESS
-      COMPLETED
-      WITHDRAWN
+        <<enum>>
+        IN_PROGRESS
+        COMPLETED
+        WITHDRAWN
     }
 
     %% EXCEPTIONS
@@ -161,18 +174,14 @@ classDiagram
     class TripStatusException
 
     %% RELATIONSHIPS
-    App --> DriverRoutes
-    App --> RiderRoutes
-    App --> TripRoutes
-    App --> SystemRoutes
-
     DriverRoutes --> DriverController
     RiderRoutes --> RiderController
     TripRoutes --> TripController
-    SystemRoutes --> SystemController
 
     DriverController --> DriverService
+    DriverController --> TripService
     RiderController --> RiderService
+    RiderController --> TripService
     TripController --> TripService
 
     DriverService --> DriverRepository
@@ -201,8 +210,24 @@ classDiagram
     TripService ..> TripNotFoundException
     TripService ..> TripStatusException
     TripService ..> InvalidRideParamException
+    TripService ..> DriverNotFoundException
 ```
 
-## About this diagram
+## Verified Against Codebase
 
-This class diagram shows the full backend architecture of the ride-sharing project. It includes the route layer, controller layer, service layer, strategy/factory layer, repository layer, domain models, enums, and exception classes. It demonstrates how the application is structured using separation of concerns and interface-based dependencies.
+| Component | Status |
+|-----------|--------|
+| All Controllers | ✓ Matches actual methods |
+| All Services | ✓ Matches actual methods |
+| All Strategies | ✓ Matches interfaces |
+| All Repositories | ✓ Matches interfaces |
+| All Models | ✓ Matches actual classes |
+| All Exceptions | ✓ All 7 exceptions present |
+| Relationships | ✓ Correct dependencies |
+
+## Key Findings
+
+- `endTrip()` is in **DriverController**, not TripController
+- TripService has `endTrip(driverId)` that returns fare
+- DriverService has `getDriver(driverId)` method
+- All routes map to correct controllers

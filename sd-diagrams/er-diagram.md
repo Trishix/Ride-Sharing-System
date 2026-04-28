@@ -1,31 +1,48 @@
-# ER Diagram
+# ER Diagram - Ride Sharing System
 
 ```mermaid
 erDiagram
-    RIDERS ||--o{ TRIPS : books
-    DRIVERS ||--o{ TRIPS : drives
+    RIDERS ||--o{ TRIPS : "books"
+    DRIVERS ||--o{ TRIPS : "drives"
 
     RIDERS {
         int id PK
         string name
     }
+
     DRIVERS {
         int id PK
         string name
-        bool is_accepting_rider
+        boolean is_accepting_rider
     }
+
     TRIPS {
         string id PK
-        int rider_id FK
-        int driver_id FK
-        int origin
-        int destination
-        int seats
-        float fare
-        string status
+        int rider_id FK "NOT NULL"
+        int driver_id FK "NOT NULL"
+        int origin "NOT NULL"
+        int destination "NOT NULL"
+        int seats "NOT NULL"
+        float fare "NOT NULL"
+        string status "NOT NULL"
+        timestamptz created_at "DEFAULT NOW()"
+        timestamptz updated_at "DEFAULT NOW()"
     }
 ```
 
-## About this diagram
+## Relationships
 
-This ER diagram captures the database entities and relationships used by the ride-sharing backend. Each rider may book many trips, and each driver may serve many trips. The `TRIPS` table stores foreign keys back to `RIDERS` and `DRIVERS`, plus ride details like origin, destination, seats, fare, and status.
+| Relationship | Type | Description |
+|--------------|------|-------------|
+| Rider → Trip | One-to-Many | A rider can book multiple trips |
+| Driver → Trip | One-to-Many | A driver can serve multiple trips |
+
+## Database Indexes
+
+- `idx_trips_rider_id` on `trips(rider_id)`
+- `idx_trips_driver_id` on `trips(driver_id)`
+- `idx_trips_status` on `trips(status)`
+
+## Implementation Note
+
+This schema matches exactly with `PostgresDatabase.initializeSchema()` in the codebase.
