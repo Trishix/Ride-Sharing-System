@@ -43,6 +43,3 @@ erDiagram
 - `idx_trips_driver_id` on `trips(driver_id)`
 - `idx_trips_status` on `trips(status)`
 
-## Implementation Note
-
-This schema matches exactly with `PostgresDatabase.initializeSchema()` in the codebase.

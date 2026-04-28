@@ -147,18 +147,4 @@ sequenceDiagram
     end
 ```
 
-## Verified Against Codebase
 
-| Flow | Endpoint | Status |
-|------|----------|--------|
-| Create Trip | POST /trips | ✓ Complete flow |
-| Update Trip | PATCH /trips/:tripId | ✓ Verified |
-| Withdraw Trip | POST /trips/:tripId/withdraw | ✓ Verified |
-| End Trip | POST /drivers/:driverId/end-trip | ✓ Verified |
-
-## Notes
-
-- All error paths match actual exception handling
-- Driver matching uses OptimalDriverStrategy
-- Pricing uses DefaultPricingStrategy with preferred rider discount (>10 trips)
-- endTrip returns fare to client
